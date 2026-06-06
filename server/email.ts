@@ -89,7 +89,7 @@ export async function sendEmailNotification(notification: EmailNotification): Pr
   }
 }
 
-export function generateLeaveNotificationEmail(employeeName: string, leaveType: string, startDate: string, endDate: string, reason: string): string {
+export function generateLeaveNotificationEmail(employeeName: string, leaveType: string, startDate: string, endDate: string, reason: string, duration?: string, fromTime?: string, toTime?: string): string {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #333;">New Leave Application Submitted</h2>
@@ -99,6 +99,8 @@ export function generateLeaveNotificationEmail(employeeName: string, leaveType: 
       <p style="margin: 10px 0;"><strong>Leave Type:</strong> ${leaveType}</p>
       <p style="margin: 10px 0;"><strong>Start Date:</strong> ${startDate}</p>
       <p style="margin: 10px 0;"><strong>End Date:</strong> ${endDate}</p>
+      ${duration ? `<p style="margin: 10px 0;"><strong>Duration:</strong> ${duration}</p>` : ''}
+      ${duration === 'Hourly' && fromTime && toTime ? `<p style="margin: 10px 0;"><strong>OD Hours:</strong> ${fromTime} to ${toTime}</p>` : ''}
       <p style="margin: 10px 0;"><strong>Reason:</strong> ${reason}</p>
       
       <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
@@ -107,7 +109,22 @@ export function generateLeaveNotificationEmail(employeeName: string, leaveType: 
   `;
 }
 
-export function generatePermissionNotificationEmail(employeeName: string, permissionType: string, date: string, startTime: string, endTime: string, reason: string): string {
+export function generatePermissionNotificationEmail(
+  employeeName: string,
+  permissionType: string,
+  date: string,
+  startTime: string,
+  endTime: string,
+  reason: string,
+  isLOPApplicable?: boolean
+): string {
+  const lopBadge = isLOPApplicable
+    ? `<div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; margin: 15px 0; border-radius: 4px;">
+        <p style="margin: 0; color: #b45309; font-weight: bold;">⚠️ Loss of Pay (LOP) Applicable</p>
+        <p style="margin: 5px 0 0 0; font-size: 13px; color: #92400e;">This permission request exceeds the monthly limit and has been marked as LOP.</p>
+      </div>`
+    : "";
+
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #333;">New Permission Request Submitted</h2>
@@ -119,6 +136,8 @@ export function generatePermissionNotificationEmail(employeeName: string, permis
       <p style="margin: 10px 0;"><strong>Start Time:</strong> ${startTime}</p>
       <p style="margin: 10px 0;"><strong>End Time:</strong> ${endTime}</p>
       <p style="margin: 10px 0;"><strong>Reason:</strong> ${reason}</p>
+      
+      ${lopBadge}
       
       <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
       <p style="color: #666; font-size: 12px;">Please review and take action on this permission request in the Leave Manager application.</p>

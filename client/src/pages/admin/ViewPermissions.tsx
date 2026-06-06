@@ -152,6 +152,11 @@ export default function ViewPermissions() {
                         <p className="font-semibold text-slate-900">{permission.employeeName ? `${permission.employeeName} (${permission.employeeId || permission.employeeCode})` : (permission.employeeCode || permission.employeeId)}</p>
                         <div className="flex items-center gap-2">
                           <Badge className={`${getPermissionTypeColor(permission.type)} border`}>{permission.type}</Badge>
+                          {permission.isLOPApplicable && (
+                            <Badge className="bg-yellow-500/20 text-yellow-700 border border-yellow-500/30 font-semibold">
+                              LOP Applicable
+                            </Badge>
+                          )}
                           <Badge variant="outline" className="text-primary border-primary/20">{permission.employeeId || permission.employeeCode}</Badge>
                         </div>
                       </div>
@@ -173,8 +178,10 @@ export default function ViewPermissions() {
                       <p className="text-sm font-semibold text-slate-900">{permission.endTime}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-500 font-medium">Applied Date</p>
-                      <p className="text-sm font-semibold text-slate-900">{permission.appliedDate}</p>
+                      <p className="text-xs text-slate-500 font-medium">Duration</p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {permission.durationMinutes ? `${Math.floor(permission.durationMinutes / 60)}h ${permission.durationMinutes % 60}m` : '-'}
+                      </p>
                     </div>
                   </div>
 

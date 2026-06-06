@@ -150,6 +150,9 @@ export default function ViewLeaves() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1 text-sm text-slate-500 font-medium">
                       <div><span className="text-slate-400">Duration:</span> {leave.startDate} to {leave.endDate} ({leave.duration})</div>
                       <div><span className="text-slate-400">Applied:</span> {leave.appliedDate}</div>
+                      {leave.duration === 'Hourly' && leave.type === 'OD' && (
+                        <div><span className="text-slate-400">OD Hours:</span> {leave.odFromTime} to {leave.odToTime}</div>
+                      )}
                     </div>
 
                     <div className="mt-4 p-3 bg-slate-50 rounded-md border border-slate-100">

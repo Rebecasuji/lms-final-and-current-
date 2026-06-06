@@ -38,9 +38,11 @@ CREATE TABLE permissions (
   permission_type permission_type NOT NULL,
   from_time time NOT NULL,
   to_time time NOT NULL,
+  permission_date date,
   reason text,
   additional_info text,
   status text DEFAULT 'Pending',
+  is_lop_applicable boolean DEFAULT false,
   created_at timestamptz DEFAULT now()
 );
 
@@ -55,6 +57,8 @@ CREATE TABLE leaves (
   reason text,
   attachment text,
   status text DEFAULT 'Pending',
+  od_from_time time,
+  od_to_time time,
   created_at timestamptz DEFAULT now()
 );
 

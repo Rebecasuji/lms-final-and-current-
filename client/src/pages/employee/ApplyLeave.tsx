@@ -19,8 +19,19 @@ const leaveSchema = z.object({
   type: z.enum(['Casual', 'Sick', 'LWP', 'Earned', 'OD', 'Comp Off']),
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
-  duration: z.enum(['Full Day', 'Half Day']),
+  duration: z.enum(['Full Day', 'Half Day', 'Hourly']).optional(),
+  fromTime: z.string().optional(),
+  toTime: z.string().optional(),
   description: z.string().min(5, "Reason is required"),
+}).refine((data) => {
+  // If Hourly is selected, fromTime and toTime are required
+  if (data.duration === 'Hourly') {
+    return data.fromTime && data.toTime;
+  }
+  return true;
+}, {
+  message: "From Time and To Time are required for Hourly OD",
+  path: ["duration"],
 });
 
 const permissionSchema = z.object({
@@ -58,8 +69,14 @@ export default function ApplyLeave() {
     defaultValues: {
       type: 'Casual',
       duration: 'Full Day',
+      fromTime: '',
+      toTime: '',
     }
   });
+
+  // Watch for changes to enable reactive rendering
+  const watchedLeaveType = form.watch('type');
+  const watchedDuration = form.watch('duration');
 
   const permissionForm = useForm<PermissionForm>({
     resolver: zodResolver(permissionSchema),
@@ -98,7 +115,11 @@ export default function ApplyLeave() {
       ...data,
       status: 'Pending' as const,
       attachment: attachment?.dataUrl,
-      appliedDate: new Date().toISOString().split('T')[0]
+      appliedDate: new Date().toISOString().split('T')[0],
+      ...(data.duration === 'Hourly' && data.type === 'OD' ? {
+        odFromTime: data.fromTime,
+        odToTime: data.toTime,
+      } : {})
     } as any;
 
     try {
@@ -120,6 +141,8 @@ export default function ApplyLeave() {
         startDate: data.startDate,
         endDate: data.endDate,
         reason: data.description,
+        duration: data.duration,
+        ...(data.duration === 'Hourly' ? { fromTime: data.fromTime, toTime: data.toTime } : {}),
         hrEmails: ['naveen@ctint.in'],
         adminEmails: ['naveen@ctint.in']
       })
@@ -313,8 +336,15 @@ export default function ApplyLeave() {
               <Label className="text-slate-700 font-medium">Duration</Label>
               <RadioGroup
                 defaultValue="Full Day"
-                onValueChange={(val) => form.setValue('duration', val as any)}
-                className="flex gap-4"
+                onValueChange={(val) => {
+                  form.setValue('duration', val as any);
+                  // Clear time fields when switching away from Hourly
+                  if (val !== 'Hourly') {
+                    form.setValue('fromTime', '');
+                    form.setValue('toTime', '');
+                  }
+                }}
+                className="flex gap-4 flex-wrap"
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="Full Day" id="full" className="border-slate-300 text-primary" />
@@ -324,8 +354,37 @@ export default function ApplyLeave() {
                   <RadioGroupItem value="Half Day" id="half" className="border-slate-300 text-primary" />
                   <Label htmlFor="half" className="text-slate-900">Half Day</Label>
                 </div>
+                {watchedLeaveType === 'OD' && (
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="Hourly" id="hourly" className="border-slate-300 text-primary" />
+                    <Label htmlFor="hourly" className="text-slate-900">Hourly</Label>
+                  </div>
+                )}
               </RadioGroup>
             </div>
+
+            {watchedDuration === 'Hourly' && watchedLeaveType === 'OD' && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-slate-700 font-medium">From Time</Label>
+                  <Input
+                    type="time"
+                    {...form.register('fromTime')}
+                    className="bg-white border-slate-200 text-slate-900"
+                  />
+                  {form.formState.errors.fromTime && <p className="text-red-400 text-xs">{form.formState.errors.fromTime.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-slate-700 font-medium">To Time</Label>
+                  <Input
+                    type="time"
+                    {...form.register('toTime')}
+                    className="bg-white border-slate-200 text-slate-900"
+                  />
+                  {form.formState.errors.toTime && <p className="text-red-400 text-xs">{form.formState.errors.toTime.message}</p>}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label className="text-slate-700 font-medium">Reason / Description</Label>

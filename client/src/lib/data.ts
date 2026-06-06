@@ -22,7 +22,7 @@ export interface LeaveRequest {
   type: LeaveType;
   startDate: string;
   endDate: string;
-  duration: string; // "Full Day" | "Half Day"
+  duration: string; // "Full Day" | "Half Day" | "Hourly"
   description: string;
   status: 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
   attachment?: string;
@@ -30,6 +30,8 @@ export interface LeaveRequest {
   actionBy?: string; // Admin Name/Code
   actionDate?: string;
   appliedDate: string;
+  odFromTime?: string; // For Hourly OD - format HH:mm
+  odToTime?: string;   // For Hourly OD - format HH:mm
 }
 
 // Initial Users from the prompt

@@ -76,7 +76,12 @@ export default function LeaveHistory() {
                     <TableCell className="text-slate-600 font-medium">
                       {format(new Date(leave.startDate), 'MMM dd')} - {format(new Date(leave.endDate), 'MMM dd, yyyy')}
                     </TableCell>
-                    <TableCell className="text-slate-600 font-medium">{leave.duration}</TableCell>
+                    <TableCell className="text-slate-600 font-medium">
+                      {leave.duration}
+                      {leave.duration === 'Hourly' && leave.type === 'OD' && (
+                        <div className="text-xs text-slate-500 font-normal">{leave.odFromTime} - {leave.odToTime}</div>
+                      )}
+                    </TableCell>
                     <TableCell className="text-slate-600 max-w-[200px] truncate" title={leave.description}>
                       {leave.description}
                     </TableCell>

@@ -153,7 +153,12 @@ export default function ApprovedLeaves() {
                                                     {leave.type}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className="text-slate-600 font-medium">{leave.duration}</TableCell>
+                                            <TableCell className="text-slate-600 font-medium">
+                                                {leave.duration}
+                                                {leave.duration === 'Hourly' && leave.type === 'OD' && (
+                                                    <div className="text-xs text-slate-500 font-normal">{leave.odFromTime} - {leave.odToTime}</div>
+                                                )}
+                                            </TableCell>
                                             <TableCell className="text-slate-600 text-sm">
                                                 {format(new Date(leave.startDate), 'MMM dd')} - {format(new Date(leave.endDate), 'MMM dd, yyyy')}
                                             </TableCell>

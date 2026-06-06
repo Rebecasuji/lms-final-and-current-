@@ -80,6 +80,8 @@ export async function getStoredLeaves(): Promise<LeaveRequest[]> {
       actionBy: row.action_by || undefined,
       actionDate: row.action_date || undefined,
       appliedDate: row.created_at ? format(new Date(row.created_at), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+      odFromTime: row.od_from_time || undefined,
+      odToTime: row.od_to_time || undefined,
     }));
 
     // Enrich mapped rows: if employeeName is missing or looks like an ID (e.g., E0053),
@@ -131,6 +133,9 @@ export async function addLeaveRequest(leave: LeaveRequest) {
       ...(leave.duration ? { leave_duration_type: leave.duration } : {}),
       reason: leave.description,
       attachment: leave.attachment || null,
+      // include hourly OD fields if present
+      ...(leave.odFromTime ? { od_from_time: leave.odFromTime } : {}),
+      ...(leave.odToTime ? { od_to_time: leave.odToTime } : {}),
     };
 
     const fullPayload: any = {
@@ -224,6 +229,62 @@ export interface PermissionRequest {
   actionBy?: string;
   actionDate?: string;
   reasonForAction?: string;
+  isLOPApplicable?: boolean;
+  durationMinutes?: number;
+}
+
+// Helper function to calculate duration in minutes between two time strings (HH:mm format)
+export function calculateDurationMinutes(startTime: string, endTime: string): number {
+  try {
+    const [startHour, startMin] = startTime.split(':').map(Number);
+    const [endHour, endMin] = endTime.split(':').map(Number);
+    const startTotalMin = startHour * 60 + startMin;
+    const endTotalMin = endHour * 60 + endMin;
+    return Math.max(0, endTotalMin - startTotalMin);
+  } catch {
+    return 0;
+  }
+}
+
+// Helper function to get monthly permission count for an employee
+export async function getMonthlyPermissionCount(
+  employeeId: string,
+  date: string
+): Promise<number> {
+  try {
+    const dateObj = new Date(date);
+    const year = dateObj.getFullYear();
+    const month = dateObj.getMonth();
+    const monthStart = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+    const monthEnd = new Date(year, month + 1, 0).toISOString().split('T')[0];
+
+    // Fetch all permissions for this employee with Pending/Approved status
+    const { data: allPermissions, error } = await supabase
+      .from('permissions')
+      .select('*')
+      .eq('user_id', employeeId)
+      .in('status', ['Pending', 'Approved']);
+
+    if (error) {
+      console.error('Error counting monthly permissions:', error);
+      return 0;
+    }
+
+    if (!allPermissions || allPermissions.length === 0) {
+      return 0;
+    }
+
+    // Filter by month - use permission_date if available, fall back to created_at
+    const monthCount = allPermissions.filter((p: any) => {
+      const dateToCheck = p.permission_date ? new Date(p.permission_date) : new Date(p.created_at);
+      return dateToCheck.getFullYear() === year && dateToCheck.getMonth() === month;
+    }).length;
+
+    return monthCount;
+  } catch (err) {
+    console.error('Error in getMonthlyPermissionCount:', err);
+    return 0;
+  }
 }
 
 export async function getStoredPermissions(): Promise<PermissionRequest[]> {
@@ -245,25 +306,31 @@ export async function getStoredPermissions(): Promise<PermissionRequest[]> {
       emergency: 'Emergency Permission',
     };
 
-    return (data || []).map((row: any) => ({
-      id: String(row.id),
-      employeeId: String(row.user_id || ''),
-      // prefer `username` column if present, then `employee_name`, then `name`
-      employeeName: row.username || row.employee_name || row.name || '',
-      // prefer explicit employee_code, otherwise fall back to user_id
-      employeeCode: row.employee_code || row.user_id || '',
-      type: DB_TO_DISPLAY[row.permission_type] || row.permission_type,
-      startTime: row.from_time || '',
-      endTime: row.to_time || '',
-      date: row.permission_date || row.created_at ? format(new Date(row.permission_date || row.created_at), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
-      reason: row.reason || '',
-      additionalInfo: row.additional_info || undefined,
-      status: row.status || 'Pending',
-      appliedDate: row.created_at ? format(new Date(row.created_at), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
-      actionBy: row.action_by || undefined,
-      actionDate: row.action_date || undefined,
-      reasonForAction: row.reason_for_action || undefined,
-    }));
+    return (data || []).map((row: any) => {
+      const startTime = row.from_time || '';
+      const endTime = row.to_time || '';
+      const durationMinutes = calculateDurationMinutes(startTime, endTime);
+
+      return {
+        id: String(row.id),
+        employeeId: String(row.user_id || ''),
+        employeeName: row.username || row.employee_name || row.name || '',
+        employeeCode: row.employee_code || row.user_id || '',
+        type: DB_TO_DISPLAY[row.permission_type] || row.permission_type,
+        startTime,
+        endTime,
+        date: row.permission_date || row.created_at ? format(new Date(row.permission_date || row.created_at), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+        reason: row.reason || '',
+        additionalInfo: row.additional_info || undefined,
+        status: row.status || 'Pending',
+        appliedDate: row.created_at ? format(new Date(row.created_at), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+        actionBy: row.action_by || undefined,
+        actionDate: row.action_date || undefined,
+        reasonForAction: row.reason_for_action || undefined,
+        isLOPApplicable: row.is_lop_applicable === true,
+        durationMinutes,
+      };
+    });
   } catch (err) {
     console.error('Error fetching permissions:', err);
     return [];
@@ -290,6 +357,7 @@ export async function addPermissionRequest(permission: PermissionRequest) {
       permission_date: permission.date,
       reason: permission.reason,
       additional_info: permission.additionalInfo || null,
+      is_lop_applicable: permission.isLOPApplicable || false,
     };
 
     const fullPerm: any = {

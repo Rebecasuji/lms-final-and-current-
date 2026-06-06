@@ -34,6 +34,8 @@ export function Sidebar() {
 
   const adminLinks = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/dashboard' },
+    { icon: FileText, label: 'Apply Leave', path: '/employee/apply-leave' },
+    { icon: Lock, label: 'Permission', path: '/employee/permission' },
     { icon: CheckSquare, label: 'View Leaves', path: '/admin/view-leaves' },
     { icon: Lock, label: 'View Permissions', path: '/admin/view-permissions' },
     { icon: Building2, label: 'Departments', path: '/admin/departments' },
