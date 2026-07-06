@@ -263,7 +263,7 @@ export default function Permission({ onClose }: { onClose?: () => void }) {
           </Card>
         </div>
       ) : (
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(handleSubmitWithLOPCheck)} className="space-y-6">
           <div className="space-y-2">
             <Label className="text-slate-700 font-medium">Permission Type</Label>
             <Select onValueChange={(val) => form.setValue('type', val as any)} defaultValue={form.getValues('type')}>
