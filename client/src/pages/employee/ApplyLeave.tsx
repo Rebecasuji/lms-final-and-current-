@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { addLeaveRequest, getLeaveBalance, LeaveBalance } from '@/lib/storage';
+import { addLeaveRequest, addPermissionRequest, getLeaveBalance, LeaveBalance } from '@/lib/storage';
 import { useLocation } from 'wouter';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -183,7 +183,7 @@ export default function ApplyLeave() {
     };
 
     try {
-      await addLeaveRequest(permissionData as any);
+      await addPermissionRequest(permissionData as any);
     } catch (err) {
       console.error('Failed to submit permission:', err);
       const message = (err as any)?.message || JSON.stringify(err) || 'Could not submit permission request.';

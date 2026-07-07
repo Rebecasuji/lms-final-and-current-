@@ -91,6 +91,120 @@ export async function registerRoutes(
       res.status(500).json({ success: false, message: "Error sending notification" });
     }
   });
+  app.post("/api/apply-leave", async (req, res) => {
+    try {
+      const leave = req.body;
+      const employeeId = leave.employeeId;
+
+      if (!employeeId || !leave.startDate || !leave.endDate) {
+        return res.status(400).json({ success: false, message: "Missing required fields" });
+      }
+
+      // 1. Fetch existing leaves for this employee that are Pending or Approved
+      const { data: existingLeaves, error: fetchError } = await supabaseServer
+        .from('leaves')
+        .select('start_date, end_date, leave_type')
+        .eq('user_id', employeeId)
+        .in('status', ['Pending', 'Approved']);
+
+      if (fetchError) {
+        console.error('Error fetching existing leaves for validation:', fetchError);
+        return res.status(500).json({ success: false, message: "Database error during validation" });
+      }
+
+      // 2. Overlap validation
+      let conflictingDates: string[] = [];
+      let conflictingLeaveType: string | null = null;
+      
+      // Parse dates safely (assuming YYYY-MM-DD input)
+      const reqStart = new Date(leave.startDate + "T00:00:00");
+      const reqEnd = new Date(leave.endDate + "T00:00:00");
+
+      for (const existing of existingLeaves || []) {
+        const existingStart = new Date(existing.start_date + "T00:00:00");
+        const existingEnd = new Date(existing.end_date + "T00:00:00");
+
+        if (reqStart <= existingEnd && reqEnd >= existingStart) {
+          const overlapStart = new Date(Math.max(reqStart.getTime(), existingStart.getTime()));
+          const overlapEnd = new Date(Math.min(reqEnd.getTime(), existingEnd.getTime()));
+          
+          let current = new Date(overlapStart);
+          while (current <= overlapEnd) {
+            const d = current.getDate().toString().padStart(2, '0');
+            const m = (current.getMonth() + 1).toString().padStart(2, '0');
+            const y = current.getFullYear();
+            const formattedDate = `${d}/${m}/${y}`;
+            
+            if (!conflictingDates.includes(formattedDate)) {
+              conflictingDates.push(formattedDate);
+            }
+            current.setDate(current.getDate() + 1);
+          }
+          conflictingLeaveType = existing.leave_type;
+          break; // Stop at first conflicting leave block
+        }
+      }
+
+      if (conflictingDates.length > 0) {
+        if (reqStart.getTime() === reqEnd.getTime() && conflictingDates.length === 1) {
+          return res.status(400).json({ 
+            success: false, 
+            message: `You have already applied ${conflictingLeaveType} for ${conflictingDates[0]}. You cannot apply another leave or Comp Off for the same date.` 
+          });
+        } else {
+          let dateMsg = conflictingDates.join(', ');
+          if (conflictingDates.length === 2) {
+            dateMsg = conflictingDates.join(' and ');
+          } else if (conflictingDates.length > 2) {
+            dateMsg = conflictingDates.slice(0, -1).join(', ') + ' and ' + conflictingDates[conflictingDates.length - 1];
+          }
+          return res.status(400).json({ 
+            success: false, 
+            message: `Cannot submit this request. Leave already exists on ${dateMsg}.`
+          });
+        }
+      }
+
+      // 3. Prepare payload for insertion
+      const safePayload: any = {
+        user_id: leave.employeeId,
+        ...(leave.employeeCode ? { username: leave.employeeCode } : {}),
+        leave_type: leave.type,
+        start_date: leave.startDate,
+        end_date: leave.endDate,
+        ...(leave.duration ? { leave_duration_type: leave.duration } : {}),
+        reason: leave.description,
+        attachment: leave.attachment || null,
+        ...(leave.odFromTime ? { od_from_time: leave.odFromTime } : {}),
+        ...(leave.odToTime ? { od_to_time: leave.odToTime } : {}),
+      };
+
+      const fullPayload: any = {
+        ...safePayload,
+        ...(leave.employeeName ? { employee_name: leave.employeeName, name: leave.employeeName } : {}),
+      };
+
+      // 4. Insert
+      let resp = await (supabaseServer.from('leaves') as any).insert(safePayload).select();
+      if (resp.error) {
+        const errMsg = String(resp.error.message || '');
+        if (!/column .* does not exist/i.test(errMsg) && !/Could not find the .* column/i.test(errMsg)) {
+          resp = await (supabaseServer.from('leaves') as any).insert(fullPayload).select();
+        }
+      }
+
+      if (resp.error) {
+        console.error('Error inserting leave:', resp.error);
+        return res.status(500).json({ success: false, message: "Database error during insertion" });
+      }
+
+      return res.status(200).json({ success: true, data: resp.data });
+    } catch (err) {
+      console.error('Error in /api/apply-leave:', err);
+      res.status(500).json({ success: false, message: "Internal server error" });
+    }
+  });
+
   app.post("/api/forgot-password", async (req, res) => {
     try {
       const { employeeCode } = req.body;

@@ -123,42 +123,20 @@ export async function getStoredLeaves(): Promise<LeaveRequest[]> {
 
 export async function addLeaveRequest(leave: LeaveRequest) {
   try {
-    const safePayload: any = {
-      user_id: leave.employeeId,
-      ...(leave.employeeCode ? { username: leave.employeeCode } : {}),
-      leave_type: leave.type,
-      start_date: leave.startDate,
-      end_date: leave.endDate,
-      // include duration when DB supports it
-      ...(leave.duration ? { leave_duration_type: leave.duration } : {}),
-      reason: leave.description,
-      attachment: leave.attachment || null,
-      // include hourly OD fields if present
-      ...(leave.odFromTime ? { od_from_time: leave.odFromTime } : {}),
-      ...(leave.odToTime ? { od_to_time: leave.odToTime } : {}),
-    };
+    const response = await fetch('/api/apply-leave', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(leave)
+    });
 
-    const fullPayload: any = {
-      ...safePayload,
-      ...(leave.employeeName ? { employee_name: leave.employeeName, name: leave.employeeName } : {}),
-    };
-
-    // Try safe payload first (avoid optional name columns that may not exist).
-    let resp = await supabase.from('leaves').insert(safePayload).select();
-    if (resp.error) {
-      const errMsg = String(resp.error.message || '');
-      // If safe payload failed due to enum/other reasons, try full payload as fallback.
-      if (!/column .* does not exist/i.test(errMsg) && !/Could not find the .* column/i.test(errMsg)) {
-        resp = await supabase.from('leaves').insert(fullPayload).select();
-      }
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Failed to submit leave request');
     }
 
-    if (resp.error) {
-      console.error('Error adding leave to Supabase after retry:', resp.error);
-      throw resp.error;
-    }
-
-    return resp.data;
+    return result.data;
   } catch (err) {
     console.error('Error in addLeaveRequest (exception):', err);
     throw err;
